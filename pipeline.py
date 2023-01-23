@@ -5,6 +5,7 @@ import dagger
 import argparse
 
 async def lint():
+    # connect to the dagger engine
     async with dagger.Connection(dagger.Config(log_output=sys.stderr)) as client:
         # get reference to the local python project
         src = client.host().directory(".")
@@ -26,7 +27,7 @@ async def lint():
 async def concurrent_tests():
     """this job runs our tests against diff python versions concurrently!"""
     versions = ["3.7", "3.8", "3.9", "3.10", "3.11"]
-
+    # connect to the dagger engine
     async with dagger.Connection(dagger.Config(log_output=sys.stderr)) as client:
         # get reference to the local project
         src = client.host().directory(".")
@@ -61,14 +62,16 @@ async def concurrent_tests():
 
 async def simple_test():
     """this job runs a single simple pytest against our module"""
+    # connect to the dagger engine
     async with dagger.Connection(dagger.Config(log_output=sys.stderr)) as client:
         # get reference to the local python project
         src = client.host().directory(".")
-
+        # the python version we want to test against
+        version = "3.10"
         # lets configure our build environment
         python = (
             client.container()
-            .from_("python:3.10.9-slim-buster") # the image where we will be running our job
+            .from_(f"python:{version}-slim-buster") # the image where we will be running our job
             .with_mounted_directory("/src", src) # mount the repo into the image
             .with_workdir("/src") # set working dir to the local project
             .with_exec(["pip", "install", "--upgrade", "pip"]) 
