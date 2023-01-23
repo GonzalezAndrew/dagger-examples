@@ -4,6 +4,25 @@ import dagger
 
 import argparse
 
+async def lint():
+    async with dagger.Connection(dagger.Config(log_output=sys.stderr)) as client:
+        # get reference to the local python project
+        src = client.host().directory(".")
+
+        # lets configure our build environment
+        python = (
+            client.container()
+            .from_("python:3.10.9-slim-buster") # the image where we will be running our job
+            .with_mounted_directory("/src", src) # mount the repo into the image
+            .with_workdir("/src") # set working dir to the local project
+            .with_exec(["pip", "install", "--upgrade", "pip"]) 
+            .with_exec(["pip", "install", '-r', "requirements.txt"]) # install all deps
+            .with_exec(["ruff", "."]) # run linter
+        )
+
+        # execute the above job
+        await python.exit_code()
+
 async def concurrent_tests():
     """this job runs our tests against diff python versions concurrently!"""
     versions = ["3.7", "3.8", "3.9", "3.10", "3.11"]
@@ -67,19 +86,24 @@ def main(argv=None):
 
     parser = argparse.ArgumentParser(
         prog="dagger",
-        description="A command line tool to run dagger pipelines.",
+        description="A command line tool to run dagger pipelines & jobs!",
     )
 
     subparser = parser.add_subparsers(dest="command")
 
     simple_parser = subparser.add_parser(
         "simple",
-        help="Run our simple pipeline."
+        help="Run our simple job."
     )
 
     concurrent_parser = subparser.add_parser(
         "concurrent",
-        help="Run our concurrent pipeline."
+        help="Run our concurrent job."
+    )
+
+    lint_parser = subparser.add_parser(
+        "lint",
+        help="Run lint job."
     )
 
     help = subparser.add_parser("help", help="Show the help for a specific command.")
@@ -102,6 +126,8 @@ def main(argv=None):
         return anyio.run(simple_test)
     if args.command == "concurrent":
         return anyio.run(concurrent_tests)
+    if args.command == "lint":
+        return anyio.run(lint)
     else:
         raise NotImplementedError(f"The command {args.command} is not implemented!")
 
